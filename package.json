@@ -14,6 +14,7 @@
     "pack:mac": "./scripts/package-macos.zsh",
     "prepare:win-on-mac": "./scripts/prepare-windows-runtime-from-release.zsh",
     "pack:win": "npm run build && electron-builder --win nsis portable --x64"
+    ,"release:checksums": "./scripts/release-checksums.zsh"
     ,"pack:mac:signed": "./scripts/sign-and-notarize-macos.zsh"
     ,"pack:win:signed": "powershell -ExecutionPolicy Bypass -File scripts/build-signed-windows.ps1"
   },

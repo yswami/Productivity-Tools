@@ -39,12 +39,16 @@ jobs:
         run: |
           node -e "const fs=require('fs'); const root=(process.env.SUPABASE_URL||'').replace(/\/$/,''); const repo='${{ github.repository }}'; fs.writeFileSync('build/beta-config.json',JSON.stringify({telemetryEndpoint:root?root+'/functions/v1/ingest-telemetry':'',releasesApiUrl:'https://api.github.com/repos/'+repo+'/releases/latest',releasesPageUrl:'https://github.com/'+repo+'/releases/latest',privacyPolicyUrl:'https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/privacy.html'},null,2)+'\n')"
       - run: npm run pack:mac
+      - name: Write Mac checksum
+        run: shasum -a 256 release/*-arm64-mac.zip > release/SHA256SUMS-macOS.txt
       - name: Upload Mac package to release
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
           generate_release_notes: true
-          files: release/*-arm64-mac.zip
+          files: |
+            release/*-arm64-mac.zip
+            release/SHA256SUMS-macOS.txt
 
   windows:
     runs-on: windows-latest
@@ -73,9 +77,14 @@ jobs:
           } | ConvertTo-Json
           Set-Content -Path build/beta-config.json -Value $config
       - run: npm run pack:win
+      - name: Write Windows checksums
+        shell: bash
+        run: sha256sum release/*.exe > release/SHA256SUMS-Windows.txt
       - name: Upload Windows packages to release
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
           generate_release_notes: true
-          files: release/*.exe
+          files: |
+            release/*.exe
+            release/SHA256SUMS-Windows.txt
