@@ -1,0 +1,81 @@
+name: Build community release
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  macos:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Prepare offline macOS runtime
+        run: |
+          git clone --depth 1 --branch v1.9.2 https://github.com/ggml-org/whisper.cpp.git /tmp/whisper.cpp
+          cmake -S /tmp/whisper.cpp -B /tmp/whisper.cpp/build -DWHISPER_BUILD_TESTS=OFF -DWHISPER_BUILD_SERVER=OFF -DGGML_NATIVE=OFF -DBUILD_SHARED_LIBS=OFF
+          cmake --build /tmp/whisper.cpp/build --config Release --target whisper-cli
+          mkdir -p resources/runtime/mac/bin/whisper-runtime/bin resources/runtime/mac/models
+          cp /tmp/whisper.cpp/build/bin/whisper-cli resources/runtime/mac/bin/whisper-runtime/bin/
+          curl -L https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.bin -o resources/runtime/mac/models/ggml-base.en.bin
+          curl -L https://huggingface.co/akashmjn/tinydiarize-whisper.cpp/resolve/main/ggml-small.en-tdrz.bin -o resources/runtime/mac/models/ggml-small.en-tdrz.bin
+          cp native/macos/transcribe-audio.zsh resources/runtime/mac/
+          mkdir -p resources/runtime/mac/bin/MeetingNotesSystemRecorder.app/Contents/MacOS
+          cp native/macos/MeetingNotesSystemRecorder-Info.plist resources/runtime/mac/bin/MeetingNotesSystemRecorder.app/Contents/Info.plist
+          swiftc native/macos/system-audio-recorder.swift -o resources/runtime/mac/bin/MeetingNotesSystemRecorder.app/Contents/MacOS/meeting-notes-system-recorder
+          codesign --force --sign - resources/runtime/mac/bin/MeetingNotesSystemRecorder.app
+      - run: npm run test:unit
+      - name: Configure community services
+        env:
+          SUPABASE_URL: ${{ vars.SUPABASE_URL }}
+        run: |
+          node -e "const fs=require('fs'); const root=(process.env.SUPABASE_URL||'').replace(/\/$/,''); const repo='${{ github.repository }}'; fs.writeFileSync('build/beta-config.json',JSON.stringify({telemetryEndpoint:root?root+'/functions/v1/ingest-telemetry':'',releasesApiUrl:'https://api.github.com/repos/'+repo+'/releases/latest',releasesPageUrl:'https://github.com/'+repo+'/releases/latest',privacyPolicyUrl:'https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/privacy.html'},null,2)+'\n')"
+      - run: npm run pack:mac
+      - name: Upload Mac package to release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: release/*-arm64-mac.zip
+
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - shell: powershell
+        run: ./scripts/prepare-windows-runtime.ps1
+      - run: npm run test:unit
+      - name: Configure community services
+        shell: powershell
+        env:
+          SUPABASE_URL: ${{ vars.SUPABASE_URL }}
+        run: |
+          $root = "$env:SUPABASE_URL".TrimEnd('/')
+          $repo = "${{ github.repository }}"
+          $config = @{
+            telemetryEndpoint = $(if ($root) { "$root/functions/v1/ingest-telemetry" } else { "" })
+            releasesApiUrl = "https://api.github.com/repos/$repo/releases/latest"
+            releasesPageUrl = "https://github.com/$repo/releases/latest"
+            privacyPolicyUrl = "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/privacy.html"
+          } | ConvertTo-Json
+          Set-Content -Path build/beta-config.json -Value $config
+      - run: npm run pack:win
+      - name: Upload Windows packages to release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: release/*.exe

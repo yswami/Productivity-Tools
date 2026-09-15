@@ -1,0 +1,35 @@
+name: Bug report
+description: Report a reproducible Meeting Notes problem without sharing private meeting data.
+title: "[Bug]: "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: Do not attach meeting audio, transcripts, participant names, credentials, or confidential information.
+  - type: input
+    id: version
+    attributes:
+      label: Meeting Notes version
+    validations:
+      required: true
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Operating system
+      options: [macOS Apple Silicon, Windows x64]
+    validations:
+      required: true
+  - type: dropdown
+    id: meeting-platform
+    attributes:
+      label: Meeting platform
+      options: [Zoom, Google Meet, Microsoft Teams, Manual capture, Not applicable]
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: Describe the steps, expected behavior, and actual behavior using sanitized information.
+    validations:
+      required: true

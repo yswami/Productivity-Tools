@@ -1,0 +1,74 @@
+{
+  "name": "meeting-notes-desktop",
+  "version": "0.3.0",
+  "description": "Private, offline meeting capture for Zoom, Google Meet, and Microsoft Teams",
+  "main": "dist/main.js",
+  "author": "Yogendra Swami",
+  "license": "MIT",
+  "scripts": {
+    "clean": "rm -rf dist release",
+    "build": "tsc && node scripts/copy-static.mjs",
+    "dev": "npm run build && electron .",
+    "test": "npm run build && node --test dist-tests/**/*.test.js",
+    "test:unit": "tsc -p tsconfig.test.json && node --test dist-tests/tests/*.test.js",
+    "pack:mac": "./scripts/package-macos.zsh",
+    "prepare:win-on-mac": "./scripts/prepare-windows-runtime-from-release.zsh",
+    "pack:win": "npm run build && electron-builder --win nsis portable --x64"
+    ,"pack:mac:signed": "./scripts/sign-and-notarize-macos.zsh"
+    ,"pack:win:signed": "powershell -ExecutionPolicy Bypass -File scripts/build-signed-windows.ps1"
+  },
+  "devDependencies": {
+    "@types/node": "^24.3.0",
+    "electron": "^38.0.0",
+    "electron-builder": "^26.0.12",
+    "typescript": "^5.9.2"
+  },
+  "build": {
+    "appId": "com.yogendra.meetingnotes",
+    "productName": "Meeting Notes",
+    "asar": true,
+    "files": [
+      "dist/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "resources/runtime/${os}",
+        "to": "runtime"
+      },
+      {
+        "from": "build/beta-config.json",
+        "to": "beta-config.json"
+      }
+    ],
+    "mac": {
+      "icon": "build/icon-source.png",
+      "category": "public.app-category.productivity",
+      "target": ["zip"],
+      "hardenedRuntime": true,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist",
+      "extendInfo": {
+        "NSMicrophoneUsageDescription": "Meeting Notes records your microphone while you choose to capture a meeting.",
+        "NSScreenCaptureUsageDescription": "Meeting Notes records meeting system audio for private offline transcription."
+      }
+    },
+    "win": {
+      "icon": "build/icon-source.png",
+      "target": ["nsis", "portable"],
+      "signAndEditExecutable": true
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "perMachine": false,
+      "artifactName": "${productName}-${version}-Windows-Setup-${arch}.${ext}"
+    },
+    "portable": {
+      "artifactName": "${productName}-${version}-Windows-Portable-${arch}.${ext}"
+    },
+    "directories": {
+      "output": "release"
+    }
+  }
+}

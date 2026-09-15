@@ -1,0 +1,27 @@
+.update-row button {
+  flex: 0 0 auto;
+}
+
+.consent-shell {
+  padding: 22px;
+}
+
+.consent-shell > p {
+  color: #475467;
+  margin: 0 0 14px;
+}
+
+.consent-shell ul {
+  color: #344054;
+  margin: 0 0 16px;
+  padding-left: 20px;
+}
+
+.consent-shell li {
+  margin: 6px 0;
+}
+
+.consent-shell .consent-note {
+  color: var(--muted);
+  font-size: 13px;
+}

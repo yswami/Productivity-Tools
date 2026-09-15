@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Meeting Notes</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="consent.css">
+  <style>
+    [hidden]{display:none!important}
+    .meeting-row{cursor:pointer}
+    .meeting-row:focus{outline:2px solid #62aa9d;outline-offset:-2px}
+    .notes-dialog{width:min(860px,calc(100vw - 32px))}
+    .notes-shell{padding:22px}
+    .notes-dialog .dialog-heading p{color:var(--muted);font-size:13px;margin-top:3px}
+    .notes-dialog pre{height:min(58vh,560px);margin:0;padding:18px;border:1px solid var(--line);border-radius:6px;background:#f8fafb;font:14px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;white-space:pre-wrap;overflow:auto;overflow-wrap:anywhere}
+    .notes-dialog .dialog-actions{margin-top:18px}
+  </style>
+</head>
+<body>
+  <header class="app-header">
+    <div>
+      <h1>Meeting Notes</h1>
+      <p id="runtime-status">Checking offline runtime...</p>
+    </div>
+    <div class="header-actions">
+      <button id="open-library" class="icon-button" title="Open meeting files" aria-label="Open meeting files">
+        <span aria-hidden="true">⌂</span>
+      </button>
+      <button id="settings-button" class="icon-button" title="Settings" aria-label="Settings">
+        <span aria-hidden="true">⚙</span>
+      </button>
+    </div>
+  </header>
+
+  <div id="recording-bar" class="recording-bar" hidden>
+    <span class="recording-dot" aria-hidden="true"></span>
+    <strong id="recording-title">Recording</strong>
+    <span id="recording-time">00:00</span>
+    <button id="stop-button" class="danger-button">Stop</button>
+  </div>
+
+  <main>
+    <section class="control-band" aria-labelledby="capture-heading">
+      <div>
+        <h2 id="capture-heading">Capture</h2>
+        <p id="detector-status">Looking for Zoom, Google Meet, or Microsoft Teams...</p>
+      </div>
+      <div class="capture-controls">
+        <select id="manual-platform" aria-label="Meeting platform">
+          <option value="manual">Manual</option>
+          <option value="zoom">Zoom</option>
+          <option value="google-meet">Google Meet</option>
+          <option value="microsoft-teams">Microsoft Teams</option>
+        </select>
+        <input id="manual-title" type="text" placeholder="Meeting title" aria-label="Meeting title">
+        <button id="start-button" class="primary-button">Start recording</button>
+      </div>
+    </section>
+
+    <section class="library" aria-labelledby="library-heading">
+      <div class="section-heading">
+        <div>
+          <h2 id="library-heading">Meeting library</h2>
+          <p id="meeting-count">No meetings yet</p>
+        </div>
+        <input id="search" type="search" placeholder="Search meetings" aria-label="Search meetings">
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Meeting</th><th>Platform</th><th>Started</th><th>Duration</th><th>Status</th><th></th></tr></thead>
+          <tbody id="meeting-rows"></tbody>
+        </table>
+        <div id="empty-state" class="empty-state">
+          <strong>No meeting captures</strong>
+          <span>Detected and manually recorded meetings will appear here.</span>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <dialog id="settings-dialog">
+    <form method="dialog">
+      <div class="dialog-heading">
+        <h2>Settings</h2>
+        <button value="cancel" class="icon-button" aria-label="Close">×</button>
+      </div>
+      <label class="setting-row"><span><strong>Automatic capture</strong><small>Start after a supported meeting is reliably detected.</small></span><input id="auto-capture" type="checkbox"></label>
+      <fieldset>
+        <legend>Platforms</legend>
+        <label><input id="platform-zoom" type="checkbox" value="zoom"> Zoom</label>
+        <label><input id="platform-meet" type="checkbox" value="google-meet"> Google Meet</label>
+        <label><input id="platform-teams" type="checkbox" value="microsoft-teams"> Microsoft Teams</label>
+      </fieldset>
+      <label class="setting-row"><span><strong>Audio retention</strong><small>Raw audio is permanently removed after this period.</small></span><select id="retention"><option value="1">1 hour</option><option value="24">24 hours</option><option value="72">3 days</option><option value="168">7 days</option></select></label>
+      <label class="setting-row"><span><strong>Calendar file</strong><small>Open an Outlook-compatible event when transcription finishes.</small></span><input id="calendar-file" type="checkbox"></label>
+      <label class="setting-row"><span><strong>Anonymous reliability data</strong><small>Share app version and success or failure events. Meeting content is never sent.</small></span><input id="telemetry-consent" type="checkbox"></label>
+      <div class="setting-row update-row">
+        <span><strong>Application updates</strong><small id="update-status">Check GitHub for a newer community build.</small></span>
+        <button id="check-updates" type="button">Check</button>
+      </div>
+      <div class="dialog-actions"><button value="cancel">Cancel</button><button id="save-settings" value="default" class="primary-button">Save</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="notes-dialog" class="notes-dialog">
+    <div class="notes-shell">
+      <div class="dialog-heading">
+        <div>
+          <h2 id="notes-title">Meeting notes</h2>
+          <p id="notes-meta"></p>
+        </div>
+        <button id="close-notes" class="icon-button" aria-label="Close">×</button>
+      </div>
+      <pre id="notes-content">Loading...</pre>
+      <div class="dialog-actions">
+        <button id="notes-folder">Open folder</button>
+        <button id="notes-readable" class="primary-button">Open readable transcript</button>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog id="telemetry-dialog" class="consent-dialog">
+    <div class="consent-shell">
+      <div class="dialog-heading"><h2>Help improve Meeting Notes</h2></div>
+      <p>Share anonymous reliability events such as whether recording, transcription, and calendar creation succeeded.</p>
+      <ul>
+        <li>No audio or transcripts</li>
+        <li>No meeting names or participants</li>
+        <li>No calendar content or file paths</li>
+      </ul>
+      <p class="consent-note">You can change this choice at any time in Settings.</p>
+      <div class="dialog-actions">
+        <button id="telemetry-decline" type="button">No thanks</button>
+        <button id="telemetry-accept" type="button" class="primary-button">Share anonymous data</button>
+      </div>
+    </div>
+  </dialog>
+
+  <script src="app.js"></script>
+</body>
+</html>

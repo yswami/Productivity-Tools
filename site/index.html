@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Join the Meeting Notes community beta for private, offline meeting transcription.">
+  <title>Meeting Notes Community Beta</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header>
+    <a class="brand" href="./">Meeting Notes</a>
+    <a id="repo-link" class="text-link" href="https://github.com/yswami/Productivity-Tools">GitHub</a>
+  </header>
+  <main>
+    <section class="intro">
+      <p class="eyebrow">Community beta</p>
+      <h1>Private meeting notes, processed on your computer.</h1>
+      <p class="lede">Capture Zoom, Google Meet, and Microsoft Teams audio, transcribe it offline, and create an Outlook-compatible calendar record.</p>
+      <div class="trust-row" aria-label="Privacy commitments">
+        <span>Offline transcription</span><span>No meeting content uploaded</span><span>Mac and Windows</span>
+      </div>
+    </section>
+
+    <section class="signup" aria-labelledby="signup-title">
+      <div>
+        <h2 id="signup-title">Join the beta</h2>
+        <p>Enter your email to receive a passwordless sign-in link. Once signed in, you can request the latest build.</p>
+      </div>
+      <form id="signup-form">
+        <label for="email">Email address</label>
+        <div class="email-row">
+          <input id="email" name="email" type="email" autocomplete="email" required placeholder="you@example.com">
+          <button type="submit">Send sign-in link</button>
+        </div>
+        <label class="consent"><input id="terms" type="checkbox" required> <span>I accept the <a href="beta-terms.html">beta terms</a> and acknowledge the <a href="privacy.html">privacy notice</a>.</span></label>
+      </form>
+      <p id="message" class="message" role="status"></p>
+    </section>
+
+    <section id="downloads" class="downloads" hidden aria-labelledby="download-title">
+      <div>
+        <p class="eyebrow">Signed in as <span id="signed-in-email"></span></p>
+        <h2 id="download-title">Download Meeting Notes</h2>
+        <p>Download requests are recorded for beta administration. The free community builds may show an operating-system security warning.</p>
+      </div>
+      <div class="download-actions">
+        <button class="download-button" data-platform="mac-arm64"><strong>Download for Mac</strong><span>Apple Silicon</span></button>
+        <button class="download-button" data-platform="windows-x64"><strong>Download for Windows</strong><span>64-bit installer</span></button>
+      </div>
+    </section>
+
+    <section class="boundaries">
+      <h2>What leaves your computer</h2>
+      <div class="boundary-grid">
+        <div><strong>Never uploaded</strong><p>Audio, transcripts, meeting titles, participant names, calendar content, and local paths.</p></div>
+        <div><strong>Optional reliability data</strong><p>App version, operating system, and whether recording, transcription, or calendar creation succeeded.</p></div>
+      </div>
+    </section>
+  </main>
+  <footer><span>Meeting Notes community beta</span><nav><a href="privacy.html">Privacy</a><a href="beta-terms.html">Beta terms</a></nav></footer>
+  <script src="config.js"></script>
+  <script type="module" src="portal.js"></script>
+</body>
+</html>

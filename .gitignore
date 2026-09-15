@@ -1,0 +1,12 @@
+node_modules/
+dist/
+dist-tests/
+release/
+resources/runtime/
+native/macos/bin/
+.cache/
+.supabase/
+.env
+.env.*
+!*.example
+.DS_Store

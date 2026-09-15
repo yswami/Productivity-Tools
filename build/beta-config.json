@@ -1,0 +1,6 @@
+{
+  "telemetryEndpoint": "",
+  "releasesApiUrl": "https://api.github.com/repos/yswami/Productivity-Tools/releases/latest",
+  "releasesPageUrl": "https://github.com/yswami/Productivity-Tools/releases/latest",
+  "privacyPolicyUrl": "https://yswami.github.io/Productivity-Tools/privacy.html"
+}

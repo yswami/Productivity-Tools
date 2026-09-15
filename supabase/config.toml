@@ -1,0 +1,7 @@
+project_id = "meeting-notes-community-beta"
+
+[functions.ingest-telemetry]
+verify_jwt = false
+
+[functions.issue-download]
+verify_jwt = false
