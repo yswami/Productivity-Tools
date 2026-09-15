@@ -6,6 +6,7 @@ resources/runtime/
 native/macos/bin/
 .cache/
 .supabase/
+supabase/.temp/
 .env
 .env.*
 !*.example
