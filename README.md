@@ -97,6 +97,8 @@ macOS requires Microphone, Screen & System Audio Recording, Accessibility, and b
 
 ## Free community beta
 
+Join the beta and request a download at [yswami.github.io/Productivity-Tools](https://yswami.github.io/Productivity-Tools/). Published builds and checksums are also available on the [GitHub Releases page](https://github.com/yswami/Productivity-Tools/releases/latest).
+
 The `site` and `supabase` folders provide an optional, zero-cost beta distribution layer:
 
 - GitHub Pages hosts the signup site and policies.
