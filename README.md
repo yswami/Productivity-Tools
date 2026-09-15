@@ -1,5 +1,7 @@
 # Meeting Notes
 
+Published in the `Productivity-Tools` repository.
+
 Meeting Notes is a private desktop meeting recorder for Zoom, Google Meet, and Microsoft Teams. It captures microphone and meeting-system audio, transcribes locally with `whisper.cpp`, keeps a searchable local meeting library, and can create an Outlook-compatible calendar event without an LLM.
 
 This project is separate from `meeting-notes-to-outlook`; installing or testing it does not replace the existing Zoom monitor.
