@@ -10,7 +10,7 @@ cd "$ROOT"
 npm run build
 rm -rf "$ROOT/release/mac-arm64"
 rm -f "$OUTPUT"
-npx electron-builder --mac zip --arm64
+npx electron-builder --mac zip --arm64 --publish never
 
 # Ad-hoc signing makes the development bundle internally valid. Public downloads
 # still require Developer ID signing and notarization via pack:mac:signed.
