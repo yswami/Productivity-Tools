@@ -1,6 +1,6 @@
 {
   "name": "meeting-notes-desktop",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Private, offline meeting capture for Zoom, Google Meet, and Microsoft Teams",
   "main": "dist/main.js",
   "author": "Yogendra Swami",
@@ -13,10 +13,10 @@
     "test:unit": "tsc -p tsconfig.test.json && node --test dist-tests/tests/*.test.js",
     "pack:mac": "./scripts/package-macos.zsh",
     "prepare:win-on-mac": "./scripts/prepare-windows-runtime-from-release.zsh",
-    "pack:win": "npm run build && electron-builder --win nsis portable --x64 --publish never"
-    ,"release:checksums": "./scripts/release-checksums.zsh"
-    ,"pack:mac:signed": "./scripts/sign-and-notarize-macos.zsh"
-    ,"pack:win:signed": "powershell -ExecutionPolicy Bypass -File scripts/build-signed-windows.ps1"
+    "pack:win": "npm run build && electron-builder --win nsis portable --x64 --publish never",
+    "release:checksums": "./scripts/release-checksums.zsh",
+    "pack:mac:signed": "./scripts/sign-and-notarize-macos.zsh",
+    "pack:win:signed": "powershell -ExecutionPolicy Bypass -File scripts/build-signed-windows.ps1"
   },
   "devDependencies": {
     "@types/node": "^24.3.0",
@@ -45,18 +45,24 @@
     "mac": {
       "icon": "build/icon-source.png",
       "category": "public.app-category.productivity",
-      "target": ["zip"],
+      "target": [
+        "zip"
+      ],
       "hardenedRuntime": true,
       "entitlements": "build/entitlements.mac.plist",
       "entitlementsInherit": "build/entitlements.mac.plist",
       "extendInfo": {
         "NSMicrophoneUsageDescription": "Meeting Notes records your microphone while you choose to capture a meeting.",
-        "NSScreenCaptureUsageDescription": "Meeting Notes records meeting system audio for private offline transcription."
+        "NSScreenCaptureUsageDescription": "Meeting Notes records meeting system audio for private offline transcription.",
+        "NSAppleEventsUsageDescription": "Meeting Notes checks Zoom, Google Chrome, and Microsoft Teams to start and stop meeting capture automatically."
       }
     },
     "win": {
       "icon": "build/icon-source.png",
-      "target": ["nsis", "portable"],
+      "target": [
+        "nsis",
+        "portable"
+      ],
       "signAndEditExecutable": true
     },
     "nsis": {

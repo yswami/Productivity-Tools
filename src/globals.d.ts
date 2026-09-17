@@ -15,6 +15,7 @@ declare global {
       onSnapshot(callback: (snapshot: unknown) => void): () => void;
     };
     captureBridge: {
+      ready(): void;
       onStart(callback: (options: any) => void): void;
       onStop(callback: (options: any) => void): void;
       chunk(sessionId: string, data: ArrayBuffer): void;

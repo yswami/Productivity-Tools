@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import { app, BrowserWindow, desktopCapturer, ipcMain, Notification, session, shell } from "electron";
+import { app, BrowserWindow, desktopCapturer, ipcMain, Notification, session, shell, systemPreferences } from "electron";
 import { AudioCapture } from "./audio-capture";
 import { BetaServices } from "./beta-services";
 import { detectMeeting } from "./detectors";
@@ -96,6 +96,15 @@ async function startMeeting(title: string, platform: MeetingPlatform): Promise<M
   broadcast();
 
   try {
+    if (process.platform === "darwin") {
+      const status = systemPreferences.getMediaAccessStatus("microphone");
+      if (status === "not-determined") {
+        const granted = await systemPreferences.askForMediaAccess("microphone");
+        if (!granted) throw new Error("Microphone access was not granted. Enable Meeting Notes in System Settings > Privacy & Security > Microphone.");
+      } else if (status !== "granted") {
+        throw new Error(`Microphone access is ${status}. Enable Meeting Notes in System Settings > Privacy & Security > Microphone.`);
+      }
+    }
     await audioCapture.start({ sessionId: id, outputFile: microphoneFile, includeSystemAudio: process.platform === "win32" });
     if (process.platform === "darwin" && systemAudioFile && macSystemCapture.available()) {
       try {

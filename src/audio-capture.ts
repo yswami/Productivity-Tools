@@ -19,15 +19,28 @@ interface PendingOperation {
   timer: NodeJS.Timeout;
 }
 
+interface PendingReady {
+  resolve: () => void;
+  reject: (error: Error) => void;
+  timer: NodeJS.Timeout;
+}
+
 export class AudioCapture {
   private window?: BrowserWindow;
   private chunks: Buffer[] = [];
   private sampleRate = 16000;
   private current?: CaptureStartOptions;
+  private readyPending?: PendingReady;
   private startPending?: PendingOperation;
   private stopPending?: PendingOperation;
 
   constructor(private readonly rendererDirectory: string, private readonly preloadFile: string) {
+    ipcMain.on("capture:ready", (event) => {
+      if (!this.window || event.sender !== this.window.webContents || !this.readyPending) return;
+      clearTimeout(this.readyPending.timer);
+      this.readyPending.resolve();
+      this.readyPending = undefined;
+    });
     ipcMain.on("capture:chunk", (_event, sessionId: string, data: ArrayBuffer) => {
       if (this.current?.sessionId === sessionId) this.chunks.push(Buffer.from(data));
     });
@@ -61,9 +74,31 @@ export class AudioCapture {
         nodeIntegration: false
       }
     });
+    const ready = new Promise<void>((resolve, reject) => {
+      this.readyPending = {
+        resolve,
+        reject,
+        timer: setTimeout(() => reject(new Error("The audio recorder window did not become ready within 10 seconds.")), 10000)
+      };
+    });
+    this.window.webContents.once("render-process-gone", (_event, details) => {
+      this.fail(`The audio recorder process stopped (${details.reason}).`);
+    });
+    this.window.webContents.once("did-fail-load", (_event, code, description) => {
+      this.fail(`The audio recorder page failed to load (${code}: ${description}).`);
+    });
+    this.window.webContents.once("unresponsive", () => {
+      this.fail("The audio recorder became unresponsive.");
+    });
     await this.window.loadFile(path.join(this.rendererDirectory, "capture.html"));
+    await ready;
     const started = new Promise<CaptureStarted>((resolve, reject) => {
-      this.startPending = this.pending(resolve, reject, "Audio capture did not start within 20 seconds.");
+      this.startPending = this.pending(
+        resolve,
+        reject,
+        "Microphone capture did not start within 30 seconds. Check Microphone access in System Settings and try again.",
+        30000
+      );
     });
     this.window.webContents.send("capture:start", options);
     await started;
@@ -120,9 +155,22 @@ export class AudioCapture {
     else this.stopPending = undefined;
   }
 
+  private fail(message: string): void {
+    const error = new Error(message);
+    if (this.readyPending) {
+      clearTimeout(this.readyPending.timer);
+      this.readyPending.reject(error);
+      this.readyPending = undefined;
+    }
+    this.rejectOperation("start", error);
+    this.rejectOperation("stop", error);
+  }
+
   private dispose(): void {
+    if (this.readyPending) clearTimeout(this.readyPending.timer);
     if (this.startPending) clearTimeout(this.startPending.timer);
     if (this.stopPending) clearTimeout(this.stopPending.timer);
+    this.readyPending = undefined;
     this.startPending = undefined;
     this.stopPending = undefined;
     this.window?.destroy();

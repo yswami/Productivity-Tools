@@ -22,7 +22,9 @@ function render(snapshot) {
   const detector = snapshot.detection;
   $("#detector-status").textContent = detector.active
     ? `${platformName(detector.platform)} detected: ${detector.title} (${detector.confidence})`
-    : "Looking for Zoom, Google Meet, or Microsoft Teams...";
+    : detector.evidence?.startsWith("macOS detector unavailable:")
+      ? "Auto-detection needs Accessibility and Automation permission in macOS System Settings."
+      : "Looking for Zoom, Google Meet, or Microsoft Teams...";
 
   const bar = $("#recording-bar");
   bar.hidden = !snapshot.activeMeeting;

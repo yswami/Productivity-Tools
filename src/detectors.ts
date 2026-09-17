@@ -4,6 +4,15 @@ import { DetectionSnapshot, MeetingPlatform } from "./types";
 
 const execFileAsync = promisify(execFile);
 
+async function macProcessExists(name: string): Promise<boolean> {
+  try {
+    await execFileAsync("/usr/bin/pgrep", ["-x", name], { timeout: 1500 });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function cleanTitle(value: string, platform: MeetingPlatform): string {
   return value
     .replace(/\s*[-|]\s*(Google Meet|Microsoft Teams|Zoom Workplace|Zoom)\s*$/i, "")
@@ -12,6 +21,18 @@ function cleanTitle(value: string, platform: MeetingPlatform): string {
 }
 
 async function detectMac(): Promise<DetectionSnapshot> {
+  // Zoom creates CptHost only while meeting media is active. This avoids
+  // depending on localized menu text or macOS Accessibility permission.
+  if (await macProcessExists("CptHost")) {
+    return {
+      active: true,
+      platform: "zoom",
+      title: "Zoom Meeting",
+      confidence: "high",
+      evidence: "Zoom meeting media process"
+    };
+  }
+
   const script = String.raw`
 on run
   tell application "System Events"

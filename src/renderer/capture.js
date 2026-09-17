@@ -47,3 +47,5 @@ window.captureBridge.onStop(async ({ sessionId }) => {
     window.captureBridge.error(sessionId, error instanceof Error ? error.message : String(error));
   }
 });
+
+window.captureBridge.ready();
