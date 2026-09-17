@@ -13,6 +13,16 @@ async function macProcessExists(name: string): Promise<boolean> {
   }
 }
 
+async function runMacDetectorScript(script: string): Promise<DetectionSnapshot | undefined> {
+  try {
+    const { stdout } = await execFileAsync("/usr/bin/osascript", ["-e", script], { timeout: 3000 });
+    const result = parseDetectorOutput(stdout);
+    return result.active ? result : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 function cleanTitle(value: string, platform: MeetingPlatform): string {
   return value
     .replace(/\s*[-|]\s*(Google Meet|Microsoft Teams|Zoom Workplace|Zoom)\s*$/i, "")
@@ -33,51 +43,30 @@ async function detectMac(): Promise<DetectionSnapshot> {
     };
   }
 
-  const script = String.raw`
+  const teamsScript = String.raw`
 on run
   tell application "System Events"
-    if exists process "zoom.us" then
-      tell process "zoom.us"
-        try
-          set menuNames to {}
-          repeat with menuBarItem in menu bar items of menu bar 1
-            try
-              set menuNames to menuNames & (name of menu items of menu 1 of menuBarItem)
-            end try
-          end repeat
-          set flatItems to menuNames as text
-          if flatItems contains "Leave Meeting" or flatItems contains "End Meeting" or flatItems contains "Leave Webinar" or flatItems contains "End Webinar" then
-            set candidate to "Zoom Meeting"
-            try
-              repeat with windowName in (name of every window)
-                if windowName is not "" and windowName does not contain "Zoom Workplace" then
-                  set candidate to windowName as text
-                  exit repeat
-                end if
-              end repeat
-            end try
-            return "zoom" & tab & candidate & tab & "high" & tab & "Zoom meeting controls"
-          end if
-        end try
-      end tell
-    end if
-
     repeat with processName in {"Microsoft Teams", "MSTeams", "Microsoft Teams (work or school)"}
       if exists process processName then
         tell process processName
-          try
-            repeat with windowName in (name of every window)
-              set titleText to windowName as text
-              if titleText contains "Meeting" or titleText contains "Call" then
-                return "microsoft-teams" & tab & titleText & tab & "high" & tab & "Teams meeting window"
-              end if
-            end repeat
-          end try
+          repeat with windowName in (name of every window)
+            set titleText to windowName as text
+            if titleText contains "Meeting" or titleText contains "Call" then
+              return "microsoft-teams" & tab & titleText & tab & "high" & tab & "Teams meeting window"
+            end if
+          end repeat
         end tell
       end if
     end repeat
   end tell
+  return "none" & tab & "" & tab & "none" & tab & ""
+end run`;
 
+  const teams = await runMacDetectorScript(teamsScript);
+  if (teams) return teams;
+
+  const browserScript = String.raw`
+on run
   tell application "Google Chrome"
     if it is running then
       repeat with browserWindow in windows
@@ -97,12 +86,8 @@ on run
   return "none" & tab & "" & tab & "none" & tab & ""
 end run`;
 
-  try {
-    const { stdout } = await execFileAsync("/usr/bin/osascript", ["-e", script], { timeout: 5000 });
-    return parseDetectorOutput(stdout);
-  } catch (error) {
-    return { active: false, confidence: "none", evidence: `macOS detector unavailable: ${String(error)}` };
-  }
+  const browserMeeting = await runMacDetectorScript(browserScript);
+  return browserMeeting ?? { active: false, confidence: "none" };
 }
 
 async function detectWindows(): Promise<DetectionSnapshot> {
