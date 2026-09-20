@@ -4,6 +4,7 @@ import { AppSettings, MeetingRecord } from "./types";
 
 const DEFAULT_SETTINGS: AppSettings = {
   autoCapture: true,
+  captureSystemAudio: true,
   enabledPlatforms: ["zoom", "google-meet", "microsoft-teams"],
   endGraceSeconds: 30,
   audioRetentionHours: 24,

@@ -1,6 +1,6 @@
 {
   "name": "meeting-notes-desktop",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "description": "Private, offline meeting capture for Zoom, Google Meet, and Microsoft Teams",
   "main": "dist/main.js",
   "author": "Yogendra Swami",
@@ -9,7 +9,7 @@
     "clean": "rm -rf dist release",
     "build": "tsc && node scripts/copy-static.mjs",
     "dev": "npm run build && electron .",
-    "test": "npm run build && node --test dist-tests/**/*.test.js",
+    "test": "npm run build && npm run test:unit",
     "test:unit": "tsc -p tsconfig.test.json && node --test dist-tests/tests/*.test.js",
     "pack:mac": "./scripts/package-macos.zsh",
     "prepare:win-on-mac": "./scripts/prepare-windows-runtime-from-release.zsh",

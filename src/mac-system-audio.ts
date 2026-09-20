@@ -5,6 +5,13 @@ import { promisify } from "node:util";
 
 const execFileAsync = promisify(execFile);
 
+export class SystemAudioPermissionError extends Error {
+  constructor() {
+    super("Screen Recording permission is unavailable.");
+    this.name = "SystemAudioPermissionError";
+  }
+}
+
 export class MacSystemAudioCapture {
   private executable?: string;
 
@@ -30,6 +37,7 @@ export class MacSystemAudioCapture {
       if (fs.existsSync(statusFile)) {
         const status = fs.readFileSync(statusFile, "utf8").trim();
         if (status === "ready") return;
+        if (status === "permission-denied") throw new SystemAudioPermissionError();
         if (status.startsWith("error:")) throw new Error(status.slice(6).trim());
       }
       await new Promise((resolve) => setTimeout(resolve, 150));

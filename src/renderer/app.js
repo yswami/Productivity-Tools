@@ -108,6 +108,8 @@ function stopTimer() {
 
 function loadSettings(settings) {
   $("#auto-capture").checked = settings.autoCapture;
+  $("#system-audio").checked = settings.captureSystemAudio;
+  $("#system-audio").disabled = state.snapshot?.platform !== "darwin";
   $("#platform-zoom").checked = settings.enabledPlatforms.includes("zoom");
   $("#platform-meet").checked = settings.enabledPlatforms.includes("google-meet");
   $("#platform-teams").checked = settings.enabledPlatforms.includes("microsoft-teams");
@@ -134,6 +136,7 @@ $("#save-settings").addEventListener("click", async (event) => {
   const enabledPlatforms = [$("#platform-zoom"), $("#platform-meet"), $("#platform-teams")].filter((input) => input.checked).map((input) => input.value);
   await window.meetingNotes.updateSettings({
     autoCapture: $("#auto-capture").checked,
+    captureSystemAudio: $("#system-audio").checked,
     enabledPlatforms,
     audioRetentionHours: Number($("#retention").value),
     createCalendarFile: $("#calendar-file").checked,

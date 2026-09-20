@@ -5,7 +5,7 @@ import { AudioCapture } from "./audio-capture";
 import { BetaServices } from "./beta-services";
 import { detectMeeting } from "./detectors";
 import { writeCalendarFile } from "./ics";
-import { MacSystemAudioCapture } from "./mac-system-audio";
+import { MacSystemAudioCapture, SystemAudioPermissionError } from "./mac-system-audio";
 import { applyAudioRetention } from "./retention";
 import { MeetingStore } from "./store";
 import { AppSnapshot, DetectionSnapshot, MeetingPlatform, MeetingRecord } from "./types";
@@ -106,13 +106,19 @@ async function startMeeting(title: string, platform: MeetingPlatform): Promise<M
       }
     }
     await audioCapture.start({ sessionId: id, outputFile: microphoneFile, includeSystemAudio: process.platform === "win32" });
-    if (process.platform === "darwin" && systemAudioFile && macSystemCapture.available()) {
+    if (process.platform === "darwin" && systemAudioFile && store.settings.captureSystemAudio && macSystemCapture.available()) {
       try {
         await macSystemCapture.start(systemAudioFile);
       } catch (error) {
-        meeting.captureWarning = `System audio unavailable: ${String(error)}`;
+        if (error instanceof SystemAudioPermissionError) {
+          store.updateSettings({ captureSystemAudio: false });
+          meeting.captureWarning = "System audio was disabled because Screen Recording permission is unavailable.";
+        } else {
+          meeting.captureWarning = `System audio unavailable: ${String(error)}`;
+        }
         store.update(id, { captureWarning: meeting.captureWarning });
-        notify("Meeting Notes", "Microphone recording started, but system audio needs permission.");
+        notify("Meeting Notes", "Microphone recording started. System audio is unavailable and will not be retried automatically.");
+        broadcast();
       }
     }
     notify("Meeting Notes", `Recording ${meeting.title}`);

@@ -63,3 +63,13 @@ test("defaults reliability sharing to off and persists an anonymous installation
   assert.equal(second.settings.telemetryConsent, false);
   fs.rmSync(root, { recursive: true, force: true });
 });
+
+test("keeps system audio enabled until a permission failure disables future attempts", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "meeting-notes-system-audio-"));
+  const first = new MeetingStore(root);
+  assert.equal(first.settings.captureSystemAudio, true);
+  first.updateSettings({ captureSystemAudio: false });
+  const second = new MeetingStore(root);
+  assert.equal(second.settings.captureSystemAudio, false);
+  fs.rmSync(root, { recursive: true, force: true });
+});

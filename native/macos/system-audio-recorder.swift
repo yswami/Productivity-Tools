@@ -1,4 +1,5 @@
 import AVFoundation
+import CoreGraphics
 import CoreMedia
 import Darwin
 import Foundation
@@ -30,6 +31,14 @@ final class SystemAudioRecorder: NSObject, SCStreamOutput, SCStreamDelegate {
             at: outputURL.deletingLastPathComponent(),
             withIntermediateDirectories: true
         )
+
+        guard CGPreflightScreenCaptureAccess() else {
+            throw NSError(
+                domain: "SystemAudioRecorder",
+                code: 3,
+                userInfo: [NSLocalizedDescriptionKey: "Screen Recording permission is unavailable."]
+            )
+        }
 
         let content = try await SCShareableContent.current
         guard let display = content.displays.first else {
@@ -170,7 +179,12 @@ Task {
             }
         }
     } catch {
-        recorder.writeStatus("error: \(error.localizedDescription)")
+        let nsError = error as NSError
+        if nsError.domain == "SystemAudioRecorder" && nsError.code == 3 {
+            recorder.writeStatus("permission-denied")
+        } else {
+            recorder.writeStatus("error: \(error.localizedDescription)")
+        }
         FileHandle.standardError.write(Data("Could not start system audio recording: \(error.localizedDescription)\n".utf8))
         exit(1)
     }

@@ -29,6 +29,7 @@ export interface MeetingRecord {
 
 export interface AppSettings {
   autoCapture: boolean;
+  captureSystemAudio: boolean;
   enabledPlatforms: MeetingPlatform[];
   endGraceSeconds: number;
   audioRetentionHours: number;
