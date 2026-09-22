@@ -2,12 +2,13 @@ import fs from "node:fs";
 import path from "node:path";
 import { app, BrowserWindow, desktopCapturer, ipcMain, Notification, session, shell, systemPreferences } from "electron";
 import { AudioCapture } from "./audio-capture";
+import { AutoCaptureGate } from "./auto-capture-gate";
 import { BetaServices } from "./beta-services";
 import { detectMeeting } from "./detectors";
 import { writeCalendarFile } from "./ics";
 import { MacSystemAudioCapture, SystemAudioPermissionError } from "./mac-system-audio";
 import { applyAudioRetention } from "./retention";
-import { MeetingStore } from "./store";
+import { compactRecorderStartupFailures, MeetingStore } from "./store";
 import { AppSnapshot, DetectionSnapshot, MeetingPlatform, MeetingRecord } from "./types";
 import { OfflineTranscriber } from "./transcriber";
 
@@ -23,6 +24,7 @@ let detectionCandidate = "";
 let detectionCount = 0;
 let absentSince = 0;
 let transitionBusy = false;
+const autoCaptureGate = new AutoCaptureGate();
 
 function projectRoot(): string {
   return app.isPackaged ? app.getAppPath() : path.resolve(__dirname, "..");
@@ -55,8 +57,9 @@ function sessionDirectory(title: string, start: Date): string {
 function snapshot(): AppSnapshot {
   return {
     detection,
+    autoCapturePaused: autoCaptureGate.pausedReason,
     activeMeeting,
-    meetings: store.meetings,
+    meetings: compactRecorderStartupFailures(store.meetings),
     settings: store.settings,
     platform: process.platform,
     runtimeReady: transcriber.ready(),
@@ -186,6 +189,7 @@ async function pollDetection(): Promise<void> {
   if (transitionBusy) return;
   detection = await detectMeeting();
   const key = detection.active ? `${detection.platform}:${detection.title}` : "";
+  autoCaptureGate.observe(key);
   if (key && key === detectionCandidate) detectionCount += 1;
   else {
     detectionCandidate = key;
@@ -197,8 +201,14 @@ async function pollDetection(): Promise<void> {
     const settings = store.settings;
     const enabled = detection.platform && settings.enabledPlatforms.includes(detection.platform);
     const stable = detection.confidence === "high" || detectionCount >= 3;
-    if (settings.autoCapture && detection.active && enabled && stable) {
-      await startMeeting(detection.title ?? "Meeting", detection.platform!);
+    if (settings.autoCapture && detection.active && enabled && stable && autoCaptureGate.canAttempt(key)) {
+      try {
+        await startMeeting(detection.title ?? "Meeting", detection.platform!);
+      } catch (error) {
+        const reason = error instanceof Error ? error.message : String(error);
+        autoCaptureGate.block(key, reason);
+        notify("Meeting Notes", "Automatic capture paused for this meeting. You can retry with Start recording.");
+      }
     }
   } else if (detection.active && detection.platform === activeMeeting.platform) {
     absentSince = 0;

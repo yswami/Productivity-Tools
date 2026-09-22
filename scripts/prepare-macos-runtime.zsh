@@ -46,6 +46,42 @@ fi
 if [[ -d "$SOURCE_RUNTIME/bin/whisper-runtime/libexec" ]]; then
   cp -R "$SOURCE_RUNTIME/bin/whisper-runtime/libexec" "$RUNTIME/bin/whisper-runtime/libexec"
 fi
+
+# Keep the Whisper executable, GGML libraries, and dynamic backends from one
+# Homebrew installation. Mixing an older GGML core with newer backends crashes
+# after recording, even though each individual file is present.
+WHISPER_PREFIX="$(brew --prefix whisper-cpp 2>/dev/null || true)"
+GGML_PREFIX="$(brew --prefix ggml 2>/dev/null || true)"
+LIBOMP_PREFIX="$(brew --prefix libomp 2>/dev/null || true)"
+if [[ -n "$WHISPER_PREFIX" && -n "$GGML_PREFIX" && -n "$LIBOMP_PREFIX" ]]; then
+  cp "$WHISPER_PREFIX/bin/whisper-cli" "$RUNTIME/bin/whisper-runtime/bin/whisper-cli"
+  cp "$WHISPER_PREFIX/lib/libwhisper.1.dylib" "$RUNTIME/bin/whisper-runtime/lib/libwhisper.1.dylib"
+  cp "$GGML_PREFIX/lib/libggml.0.dylib" "$RUNTIME/bin/whisper-runtime/lib/libggml.0.dylib"
+  cp "$GGML_PREFIX/lib/libggml-base.0.dylib" "$RUNTIME/bin/whisper-runtime/lib/libggml-base.0.dylib"
+  cp "$LIBOMP_PREFIX/lib/libomp.dylib" "$RUNTIME/bin/whisper-runtime/lib/libomp.dylib"
+  rm -rf "$RUNTIME/bin/whisper-runtime/libexec"
+  cp -R "$GGML_PREFIX/libexec" "$RUNTIME/bin/whisper-runtime/libexec"
+
+  install_name_tool \
+    -change "$GGML_PREFIX/lib/libggml.0.dylib" '@rpath/libggml.0.dylib' \
+    -change "$GGML_PREFIX/lib/libggml-base.0.dylib" '@rpath/libggml-base.0.dylib' \
+    "$RUNTIME/bin/whisper-runtime/bin/whisper-cli"
+  install_name_tool \
+    -id '@rpath/libwhisper.1.dylib' \
+    -change "$GGML_PREFIX/lib/libggml.0.dylib" '@rpath/libggml.0.dylib' \
+    -change "$GGML_PREFIX/lib/libggml-base.0.dylib" '@rpath/libggml-base.0.dylib' \
+    "$RUNTIME/bin/whisper-runtime/lib/libwhisper.1.dylib"
+  install_name_tool -id '@rpath/libggml.0.dylib' "$RUNTIME/bin/whisper-runtime/lib/libggml.0.dylib"
+  install_name_tool \
+    -id '@rpath/libggml-base.0.dylib' \
+    -change "$LIBOMP_PREFIX/lib/libomp.dylib" '@rpath/libomp.dylib' \
+    "$RUNTIME/bin/whisper-runtime/lib/libggml-base.0.dylib"
+  for backend in "$RUNTIME/bin/whisper-runtime/libexec/"*.so; do
+    if otool -L "$backend" | grep -q "$LIBOMP_PREFIX/lib/libomp.dylib"; then
+      install_name_tool -change "$LIBOMP_PREFIX/lib/libomp.dylib" '@rpath/libomp.dylib' "$backend"
+    fi
+  done
+fi
 cp "$SOURCE_RUNTIME/models/ggml-base.en.bin" "$RUNTIME/models/ggml-base.en.bin"
 if [[ -f "$SOURCE_RUNTIME/models/ggml-small.en-tdrz.bin" ]]; then
   cp "$SOURCE_RUNTIME/models/ggml-small.en-tdrz.bin" "$RUNTIME/models/ggml-small.en-tdrz.bin"

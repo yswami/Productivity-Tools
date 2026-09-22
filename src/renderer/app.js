@@ -20,7 +20,9 @@ function render(snapshot) {
   state.snapshot = snapshot;
   $("#runtime-status").textContent = snapshot.runtimeReady ? "Offline transcription ready" : "Whisper runtime needs installation";
   const detector = snapshot.detection;
-  $("#detector-status").textContent = detector.active
+  $("#detector-status").textContent = snapshot.autoCapturePaused
+    ? `Automatic capture paused for this meeting: ${snapshot.autoCapturePaused}`
+    : detector.active
     ? `${platformName(detector.platform)} detected: ${detector.title} (${detector.confidence})`
     : "Looking for Zoom, Google Meet, or Microsoft Teams...";
 

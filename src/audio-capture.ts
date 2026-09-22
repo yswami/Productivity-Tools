@@ -66,6 +66,32 @@ export class AudioCapture {
     if (this.current) throw new Error("An audio capture is already active.");
     this.current = options;
     this.chunks = [];
+    let readyError: unknown;
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      try {
+        await this.openReadyWindow();
+        readyError = undefined;
+        break;
+      } catch (error) {
+        readyError = error;
+        this.disposeWindow();
+      }
+    }
+    if (readyError) throw readyError;
+
+    const started = new Promise<CaptureStarted>((resolve, reject) => {
+      this.startPending = this.pending(
+        resolve,
+        reject,
+        "Microphone capture did not start within 30 seconds. Check Microphone access in System Settings and try again.",
+        30000
+      );
+    });
+    this.window!.webContents.send("capture:start", options);
+    await started;
+  }
+
+  private async openReadyWindow(): Promise<void> {
     this.window = new BrowserWindow({
       show: false,
       webPreferences: {
@@ -90,18 +116,10 @@ export class AudioCapture {
     this.window.webContents.once("unresponsive", () => {
       this.fail("The audio recorder became unresponsive.");
     });
-    await this.window.loadFile(path.join(this.rendererDirectory, "capture.html"));
-    await ready;
-    const started = new Promise<CaptureStarted>((resolve, reject) => {
-      this.startPending = this.pending(
-        resolve,
-        reject,
-        "Microphone capture did not start within 30 seconds. Check Microphone access in System Settings and try again.",
-        30000
-      );
-    });
-    this.window.webContents.send("capture:start", options);
-    await started;
+    await Promise.all([
+      this.window.loadFile(path.join(this.rendererDirectory, "capture.html")),
+      ready
+    ]);
   }
 
   async stop(): Promise<string | undefined> {
@@ -167,16 +185,20 @@ export class AudioCapture {
   }
 
   private dispose(): void {
-    if (this.readyPending) clearTimeout(this.readyPending.timer);
+    this.disposeWindow();
     if (this.startPending) clearTimeout(this.startPending.timer);
     if (this.stopPending) clearTimeout(this.stopPending.timer);
-    this.readyPending = undefined;
     this.startPending = undefined;
     this.stopPending = undefined;
-    this.window?.destroy();
-    this.window = undefined;
     this.current = undefined;
     this.chunks = [];
+  }
+
+  private disposeWindow(): void {
+    if (this.readyPending) clearTimeout(this.readyPending.timer);
+    this.readyPending = undefined;
+    this.window?.destroy();
+    this.window = undefined;
   }
 
   private writeWav(outputFile: string, pcm: Buffer, sampleRate: number): void {

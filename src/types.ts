@@ -41,6 +41,7 @@ export interface AppSettings {
 
 export interface AppSnapshot {
   detection: DetectionSnapshot;
+  autoCapturePaused?: string;
   activeMeeting?: MeetingRecord;
   meetings: MeetingRecord[];
   settings: AppSettings;

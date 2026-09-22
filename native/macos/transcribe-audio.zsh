@@ -14,8 +14,7 @@ if [[ -z "${GGML_BACKEND_PATH:-}" && -d "$BACKEND_DIR" ]]; then
     *M2*|*M3*) backend_file="$BACKEND_DIR/libggml-cpu-apple_m2_m3.so" ;;
     *) backend_file="$BACKEND_DIR/libggml-cpu-apple_m2_m3.so" ;;
   esac
-  installed_backend="$(/usr/bin/find /opt/homebrew/Cellar/ggml -path "*/libexec/${backend_file:t}" -print -quit 2>/dev/null || true)"
-  if [[ -f "$backend_file" && -z "$installed_backend" ]]; then
+  if [[ -f "$backend_file" ]]; then
     export GGML_BACKEND_PATH="$backend_file"
   fi
 fi

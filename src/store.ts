@@ -20,6 +20,39 @@ interface StoredState {
   installationId: string;
 }
 
+const RECORDER_STARTUP_ERROR = "The audio recorder window did not become ready within 10 seconds.";
+const RETRY_BURST_GAP_MS = 60_000;
+
+export function compactRecorderStartupFailures(meetings: MeetingRecord[]): MeetingRecord[] {
+  const sorted = [...meetings].sort((a, b) => b.startedAt.localeCompare(a.startedAt));
+  const visible: MeetingRecord[] = [];
+  let previousFailure: MeetingRecord | undefined;
+
+  for (const meeting of sorted) {
+    const isRecorderStartupFailure = meeting.status === "failed"
+      && meeting.error?.includes(RECORDER_STARTUP_ERROR);
+
+    if (!isRecorderStartupFailure) {
+      visible.push(meeting);
+      previousFailure = undefined;
+      continue;
+    }
+
+    const previousStartedAt = previousFailure ? Date.parse(previousFailure.startedAt) : Number.NaN;
+    const startedAt = Date.parse(meeting.startedAt);
+    const isSameBurst = previousFailure?.platform === meeting.platform
+      && previousFailure.title === meeting.title
+      && Number.isFinite(previousStartedAt)
+      && Number.isFinite(startedAt)
+      && previousStartedAt - startedAt <= RETRY_BURST_GAP_MS;
+
+    if (!isSameBurst) visible.push(meeting);
+    previousFailure = meeting;
+  }
+
+  return visible;
+}
+
 export class MeetingStore {
   private readonly stateFile: string;
   private state: StoredState;

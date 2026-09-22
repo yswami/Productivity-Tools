@@ -6,8 +6,13 @@ ENTITLEMENTS="${2:-}"
 
 # Re-sign every nested Mach-O first so macOS sees one consistent identity.
 while IFS= read -r -d '' candidate; do
-  if /usr/bin/file "$candidate" | /usr/bin/grep -q 'Mach-O'; then
-    /usr/bin/codesign --force --options runtime --timestamp=none --sign - "$candidate"
+  file_description="$(/usr/bin/file "$candidate")"
+  if print -r -- "$file_description" | /usr/bin/grep -q 'Mach-O'; then
+    if [[ -n "$ENTITLEMENTS" ]] && print -r -- "$file_description" | /usr/bin/grep -q 'executable'; then
+      /usr/bin/codesign --force --options runtime --timestamp=none --entitlements "$ENTITLEMENTS" --sign - "$candidate"
+    else
+      /usr/bin/codesign --force --options runtime --timestamp=none --sign - "$candidate"
+    fi
   fi
 done < <(/usr/bin/find "$APP/Contents" -type f -print0)
 
