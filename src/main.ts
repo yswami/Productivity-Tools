@@ -4,6 +4,7 @@ import { app, BrowserWindow, desktopCapturer, ipcMain, Notification, session, sh
 import { AudioCapture } from "./audio-capture";
 import { AutoCaptureGate } from "./auto-capture-gate";
 import { BetaServices } from "./beta-services";
+import { evaluateDetectorStop } from "./capture-lifecycle";
 import { detectMeeting } from "./detectors";
 import { writeCalendarFile } from "./ics";
 import { MacSystemAudioCapture, SystemAudioPermissionError } from "./mac-system-audio";
@@ -19,6 +20,7 @@ let macSystemCapture: MacSystemAudioCapture;
 let transcriber: OfflineTranscriber;
 let betaServices: BetaServices;
 let activeMeeting: MeetingRecord | undefined;
+let activeMeetingStartedAutomatically = false;
 let detection: DetectionSnapshot = { active: false, confidence: "none" };
 let detectionCandidate = "";
 let detectionCount = 0;
@@ -75,7 +77,11 @@ function notify(title: string, body: string): void {
   if (Notification.isSupported()) new Notification({ title, body }).show();
 }
 
-async function startMeeting(title: string, platform: MeetingPlatform): Promise<MeetingRecord> {
+async function startMeeting(
+  title: string,
+  platform: MeetingPlatform,
+  startedAutomatically = false
+): Promise<MeetingRecord> {
   if (activeMeeting) return activeMeeting;
   transitionBusy = true;
   const started = new Date();
@@ -95,6 +101,7 @@ async function startMeeting(title: string, platform: MeetingPlatform): Promise<M
     systemAudioFile
   };
   activeMeeting = meeting;
+  activeMeetingStartedAutomatically = startedAutomatically;
   store.add(meeting);
   broadcast();
 
@@ -130,6 +137,7 @@ async function startMeeting(title: string, platform: MeetingPlatform): Promise<M
   } catch (error) {
     audioCapture.abort();
     activeMeeting = undefined;
+    activeMeetingStartedAutomatically = false;
     store.update(id, { status: "failed", error: String(error), endedAt: new Date().toISOString() });
     void betaServices.capture("recording_failed", { stage: "capture", platform });
     broadcast();
@@ -151,6 +159,7 @@ async function stopMeeting(): Promise<MeetingRecord | undefined> {
     meeting.status = "transcribing";
     store.update(meeting.id, meeting);
     activeMeeting = undefined;
+    activeMeetingStartedAutomatically = false;
     broadcast();
 
     const result = await transcriber.transcribeMeeting(meeting);
@@ -176,6 +185,7 @@ async function stopMeeting(): Promise<MeetingRecord | undefined> {
     meeting.endedAt ??= new Date().toISOString();
     store.update(meeting.id, meeting);
     activeMeeting = undefined;
+    activeMeetingStartedAutomatically = false;
     notify("Meeting Notes", `Capture needs attention: ${meeting.title}`);
     void betaServices.capture("transcription_failed", { platform: meeting.platform });
     return meeting;
@@ -203,18 +213,23 @@ async function pollDetection(): Promise<void> {
     const stable = detection.confidence === "high" || detectionCount >= 3;
     if (settings.autoCapture && detection.active && enabled && stable && autoCaptureGate.canAttempt(key)) {
       try {
-        await startMeeting(detection.title ?? "Meeting", detection.platform!);
+        await startMeeting(detection.title ?? "Meeting", detection.platform!, true);
       } catch (error) {
         const reason = error instanceof Error ? error.message : String(error);
         autoCaptureGate.block(key, reason);
         notify("Meeting Notes", "Automatic capture paused for this meeting. You can retry with Start recording.");
       }
     }
-  } else if (detection.active && detection.platform === activeMeeting.platform) {
-    absentSince = 0;
   } else {
-    absentSince ||= Date.now();
-    if (Date.now() - absentSince >= store.settings.endGraceSeconds * 1000) {
+    const endDecision = evaluateDetectorStop({
+      startedAutomatically: activeMeetingStartedAutomatically,
+      detectionMatches: detection.active && detection.platform === activeMeeting.platform,
+      absentSince,
+      now: Date.now(),
+      graceSeconds: store.settings.endGraceSeconds
+    });
+    absentSince = endDecision.absentSince;
+    if (endDecision.shouldStop) {
       absentSince = 0;
       await stopMeeting();
     }
