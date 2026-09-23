@@ -26,6 +26,7 @@ let detectionCandidate = "";
 let detectionCount = 0;
 let absentSince = 0;
 let transitionBusy = false;
+let detectorBusy = false;
 const autoCaptureGate = new AutoCaptureGate();
 
 function projectRoot(): string {
@@ -49,6 +50,37 @@ function rendererDirectory(): string {
 
 function safeFileName(value: string): string {
   return value.replace(/[\\/:*?"<>|\r\n]+/g, " ").replace(/\s+/g, " ").trim().slice(0, 90) || "Meeting";
+}
+
+function renameMeeting(id: string, requestedTitle: string): MeetingRecord {
+  if (!requestedTitle.trim()) throw new Error("Enter a meeting name.");
+  const title = safeFileName(requestedTitle);
+  const meeting = store.meetings.find((candidate) => candidate.id === id);
+  if (!meeting) throw new Error("Meeting not found.");
+  meeting.title = title;
+  store.update(id, { title });
+  if (activeMeeting?.id === id) activeMeeting.title = title;
+  if (meeting.calendarFile && fs.existsSync(meeting.calendarFile)) writeCalendarFile(meeting);
+  broadcast();
+  return meeting;
+}
+
+async function visibleWindowTitles(): Promise<string[]> {
+  if (process.platform === "darwin" && systemPreferences.getMediaAccessStatus("screen") !== "granted") return [];
+  try {
+    const sourceRequest = desktopCapturer.getSources({
+      types: ["window"],
+      thumbnailSize: { width: 0, height: 0 },
+      fetchWindowIcons: false
+    });
+    const sources = await Promise.race([
+      sourceRequest,
+      new Promise<never>((_resolve, reject) => setTimeout(() => reject(new Error("Window scan timed out.")), 1500))
+    ]);
+    return sources.map((source) => source.name).filter(Boolean);
+  } catch {
+    return [];
+  }
 }
 
 function sessionDirectory(title: string, start: Date): string {
@@ -196,45 +228,50 @@ async function stopMeeting(): Promise<MeetingRecord | undefined> {
 }
 
 async function pollDetection(): Promise<void> {
-  if (transitionBusy) return;
-  detection = await detectMeeting();
-  const key = detection.active ? `${detection.platform}:${detection.title}` : "";
-  autoCaptureGate.observe(key);
-  if (key && key === detectionCandidate) detectionCount += 1;
-  else {
-    detectionCandidate = key;
-    detectionCount = key ? 1 : 0;
-  }
+  if (transitionBusy || detectorBusy) return;
+  detectorBusy = true;
+  try {
+    detection = await detectMeeting(await visibleWindowTitles());
+    const key = detection.active ? `${detection.platform}:${detection.title}` : "";
+    autoCaptureGate.observe(key);
+    if (key && key === detectionCandidate) detectionCount += 1;
+    else {
+      detectionCandidate = key;
+      detectionCount = key ? 1 : 0;
+    }
 
-  if (!activeMeeting) {
-    absentSince = 0;
-    const settings = store.settings;
-    const enabled = detection.platform && settings.enabledPlatforms.includes(detection.platform);
-    const stable = detection.confidence === "high" || detectionCount >= 3;
-    if (settings.autoCapture && detection.active && enabled && stable && autoCaptureGate.canAttempt(key)) {
-      try {
-        await startMeeting(detection.title ?? "Meeting", detection.platform!, true);
-      } catch (error) {
-        const reason = error instanceof Error ? error.message : String(error);
-        autoCaptureGate.block(key, reason);
-        notify("Meeting Notes", "Automatic capture paused for this meeting. You can retry with Start recording.");
+    if (!activeMeeting) {
+      absentSince = 0;
+      const settings = store.settings;
+      const enabled = detection.platform && settings.enabledPlatforms.includes(detection.platform);
+      const stable = detection.confidence === "high" || detectionCount >= 3;
+      if (settings.autoCapture && detection.active && enabled && stable && autoCaptureGate.canAttempt(key)) {
+        try {
+          await startMeeting(detection.title ?? "Meeting", detection.platform!, true);
+        } catch (error) {
+          const reason = error instanceof Error ? error.message : String(error);
+          autoCaptureGate.block(key, reason);
+          notify("Meeting Notes", "Automatic capture paused for this meeting. You can retry with Start recording.");
+        }
+      }
+    } else {
+      const endDecision = evaluateDetectorStop({
+        startedAutomatically: activeMeetingStartedAutomatically,
+        detectionMatches: detection.active && detection.platform === activeMeeting.platform,
+        absentSince,
+        now: Date.now(),
+        graceSeconds: store.settings.endGraceSeconds
+      });
+      absentSince = endDecision.absentSince;
+      if (endDecision.shouldStop) {
+        absentSince = 0;
+        await stopMeeting();
       }
     }
-  } else {
-    const endDecision = evaluateDetectorStop({
-      startedAutomatically: activeMeetingStartedAutomatically,
-      detectionMatches: detection.active && detection.platform === activeMeeting.platform,
-      absentSince,
-      now: Date.now(),
-      graceSeconds: store.settings.endGraceSeconds
-    });
-    absentSince = endDecision.absentSince;
-    if (endDecision.shouldStop) {
-      absentSince = 0;
-      await stopMeeting();
-    }
+    broadcast();
+  } finally {
+    detectorBusy = false;
   }
-  broadcast();
 }
 
 function createMainWindow(): void {
@@ -267,6 +304,8 @@ function registerIpc(): void {
   ipcMain.handle("meeting:start", (_event, payload: { title?: string; platform?: MeetingPlatform }) =>
     startMeeting(payload.title?.trim() || "Manual Meeting", payload.platform || "manual"));
   ipcMain.handle("meeting:stop", () => stopMeeting());
+  ipcMain.handle("meeting:rename", (_event, payload: { id: string; title: string }) =>
+    renameMeeting(payload.id, payload.title));
   ipcMain.handle("meeting:details", (_event, id: string) => {
     const meeting = store.meetings.find((candidate) => candidate.id === id);
     if (!meeting) throw new Error("Meeting not found.");
@@ -288,6 +327,10 @@ function registerIpc(): void {
   ipcMain.handle("app:open-external", (_event, url: string) => {
     if (!/^https:\/\//.test(url)) throw new Error("Only HTTPS links are allowed.");
     return shell.openExternal(url);
+  });
+  ipcMain.handle("app:open-auto-capture-settings", () => {
+    if (process.platform !== "darwin") return undefined;
+    return shell.openExternal("x-apple.systempreferences:com.apple.preference.security?Privacy_Automation");
   });
   ipcMain.handle("file:open", (_event, file: string) => shell.openPath(file));
   ipcMain.handle("folder:open", (_event, directory: string) => shell.openPath(directory));

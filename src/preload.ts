@@ -5,10 +5,12 @@ contextBridge.exposeInMainWorld("meetingNotes", {
   snapshot: () => ipcRenderer.invoke("app:snapshot"),
   start: (title: string, platform: MeetingPlatform) => ipcRenderer.invoke("meeting:start", { title, platform }),
   stop: () => ipcRenderer.invoke("meeting:stop"),
+  rename: (id: string, title: string) => ipcRenderer.invoke("meeting:rename", { id, title }),
   details: (id: string) => ipcRenderer.invoke("meeting:details", id),
   updateSettings: (patch: Partial<AppSettings>) => ipcRenderer.invoke("settings:update", patch),
   checkForUpdates: () => ipcRenderer.invoke("app:check-updates"),
   openExternal: (url: string) => ipcRenderer.invoke("app:open-external", url),
+  openAutoCaptureSettings: () => ipcRenderer.invoke("app:open-auto-capture-settings"),
   openFile: (file: string) => ipcRenderer.invoke("file:open", file),
   openFolder: (directory: string) => ipcRenderer.invoke("folder:open", directory),
   onSnapshot: (callback: (snapshot: unknown) => void) => {

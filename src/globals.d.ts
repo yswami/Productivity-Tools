@@ -6,10 +6,12 @@ declare global {
       snapshot(): Promise<unknown>;
       start(title: string, platform: string): Promise<unknown>;
       stop(): Promise<unknown>;
+      rename(id: string, title: string): Promise<unknown>;
       details(id: string): Promise<unknown>;
       updateSettings(patch: unknown): Promise<unknown>;
       checkForUpdates(): Promise<unknown>;
       openExternal(url: string): Promise<unknown>;
+      openAutoCaptureSettings(): Promise<unknown>;
       openFile(file: string): Promise<unknown>;
       openFolder(directory: string): Promise<unknown>;
       onSnapshot(callback: (snapshot: unknown) => void): () => void;

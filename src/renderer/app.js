@@ -20,11 +20,15 @@ function render(snapshot) {
   state.snapshot = snapshot;
   $("#runtime-status").textContent = snapshot.runtimeReady ? "Offline transcription ready" : "Whisper runtime needs installation";
   const detector = snapshot.detection;
+  const permissionIssue = !detector.active && /permission|automation|accessibility/i.test(detector.evidence || "");
   $("#detector-status").textContent = snapshot.autoCapturePaused
     ? `Automatic capture paused for this meeting: ${snapshot.autoCapturePaused}`
     : detector.active
     ? `${platformName(detector.platform)} detected: ${detector.title} (${detector.confidence})`
-    : "Looking for Zoom, Google Meet, or Microsoft Teams...";
+    : permissionIssue
+      ? detector.evidence
+      : "Looking for Zoom, Google Meet, or Microsoft Teams...";
+  $("#detector-permissions").hidden = !permissionIssue || snapshot.platform !== "darwin";
 
   const bar = $("#recording-bar");
   bar.hidden = !snapshot.activeMeeting;
@@ -78,7 +82,8 @@ async function showMeetingNotes(id) {
   try {
     const details = await window.meetingNotes.details(id);
     const meeting = details.meeting;
-    $("#notes-title").textContent = meeting.title;
+    $("#notes-title-input").value = meeting.title;
+    $("#save-meeting-name").dataset.meetingId = meeting.id;
     $("#notes-meta").textContent = `${platformName(meeting.platform)} · ${formatDate(meeting.startedAt)} · ${formatDuration(meeting)}`;
     $("#notes-content").textContent = details.transcript;
     $("#notes-folder").onclick = () => window.meetingNotes.openFolder(meeting.directory);
@@ -129,6 +134,24 @@ $("#stop-button").addEventListener("click", () => window.meetingNotes.stop());
 $("#search").addEventListener("input", () => state.snapshot && render(state.snapshot));
 $("#settings-button").addEventListener("click", () => $("#settings-dialog").showModal());
 $("#close-notes").addEventListener("click", () => $("#notes-dialog").close());
+$("#save-meeting-name").addEventListener("click", async () => {
+  const button = $("#save-meeting-name");
+  const title = $("#notes-title-input").value.trim();
+  if (!title) return;
+  button.disabled = true;
+  try {
+    const meeting = await window.meetingNotes.rename(button.dataset.meetingId, title);
+    $("#notes-title-input").value = meeting.title;
+    button.textContent = "Saved";
+    setTimeout(() => { button.textContent = "Rename"; }, 1200);
+  } finally {
+    button.disabled = false;
+  }
+});
+$("#notes-title-input").addEventListener("keydown", (event) => {
+  if (event.key === "Enter") $("#save-meeting-name").click();
+});
+$("#detector-permissions").addEventListener("click", () => window.meetingNotes.openAutoCaptureSettings());
 $("#open-library").addEventListener("click", () => {
   const directory = state.snapshot?.activeMeeting?.directory || state.snapshot?.meetings?.[0]?.directory;
   if (directory) window.meetingNotes.openFolder(directory);
