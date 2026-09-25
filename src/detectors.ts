@@ -73,6 +73,7 @@ async function detectMac(windowTitles: string[]): Promise<DetectionSnapshot> {
 
   const teamsScript = String.raw`
 on run
+  set fieldSeparator to character id 9
   tell application "System Events"
     repeat with processName in {"Microsoft Teams", "MSTeams", "Microsoft Teams (work or school)"}
       if exists process processName then
@@ -80,14 +81,14 @@ on run
           repeat with windowName in (name of every window)
             set titleText to windowName as text
             if titleText contains "Meeting" or titleText contains "Call" then
-              return "microsoft-teams" & tab & titleText & tab & "high" & tab & "Teams meeting window"
+              return "microsoft-teams" & fieldSeparator & titleText & fieldSeparator & "high" & fieldSeparator & "Teams meeting window"
             end if
           end repeat
         end tell
       end if
     end repeat
   end tell
-  return "none" & tab & "" & tab & "none" & tab & ""
+  return "none" & fieldSeparator & "" & fieldSeparator & "none" & fieldSeparator & ""
 end run`;
 
   const teams = await runMacDetectorScript(teamsScript);
@@ -99,53 +100,55 @@ end run`;
 function chromiumBrowserScript(applicationName: string): string {
   return String.raw`
 on run
+  set fieldSeparator to character id 9
   tell application "${applicationName}"
     if it is running then
       repeat with browserWindow in windows
         repeat with browserTab in tabs of browserWindow
           set tabUrl to URL of browserTab
           set tabTitle to title of browserTab
-          if tabUrl contains "meet.google.com/" and tabUrl does not contain "/landing" then
-            return "google-meet" & tab & tabTitle & tab & "high" & tab & "Google Meet call tab in ${applicationName}"
+          if tabUrl contains "meet.google.com/" and tabUrl does not contain "meet.google.com/?" and tabUrl does not contain "/home" and tabUrl does not contain "/landing" and tabUrl does not contain "/_meet/" then
+            return "google-meet" & fieldSeparator & tabTitle & fieldSeparator & "high" & fieldSeparator & "Google Meet call tab in ${applicationName}"
           end if
           if (tabUrl contains "teams.microsoft.com/" or tabUrl contains "teams.cloud.microsoft/") and (tabTitle contains "Meeting" or tabTitle contains "Call") then
-            return "microsoft-teams" & tab & tabTitle & tab & "high" & tab & "Teams call tab in ${applicationName}"
+            return "microsoft-teams" & fieldSeparator & tabTitle & fieldSeparator & "high" & fieldSeparator & "Teams call tab in ${applicationName}"
           end if
         end repeat
       end repeat
     end if
   end tell
-  return "none" & tab & "" & tab & "none" & tab & ""
+  return "none" & fieldSeparator & "" & fieldSeparator & "none" & fieldSeparator & ""
 end run`;
 }
 
 function safariBrowserScript(): string {
   return String.raw`
 on run
+  set fieldSeparator to character id 9
   tell application "Safari"
     if it is running then
       repeat with browserWindow in windows
         repeat with browserTab in tabs of browserWindow
           set tabUrl to URL of browserTab
           set tabTitle to name of browserTab
-          if tabUrl contains "meet.google.com/" and tabUrl does not contain "/landing" then
-            return "google-meet" & tab & tabTitle & tab & "high" & tab & "Google Meet call tab in Safari"
+          if tabUrl contains "meet.google.com/" and tabUrl does not contain "meet.google.com/?" and tabUrl does not contain "/home" and tabUrl does not contain "/landing" and tabUrl does not contain "/_meet/" then
+            return "google-meet" & fieldSeparator & tabTitle & fieldSeparator & "high" & fieldSeparator & "Google Meet call tab in Safari"
           end if
           if (tabUrl contains "teams.microsoft.com/" or tabUrl contains "teams.cloud.microsoft/") and (tabTitle contains "Meeting" or tabTitle contains "Call") then
-            return "microsoft-teams" & tab & tabTitle & tab & "high" & tab & "Teams call tab in Safari"
+            return "microsoft-teams" & fieldSeparator & tabTitle & fieldSeparator & "high" & fieldSeparator & "Teams call tab in Safari"
           end if
         end repeat
       end repeat
     end if
   end tell
-  return "none" & tab & "" & tab & "none" & tab & ""
+  return "none" & fieldSeparator & "" & fieldSeparator & "none" & fieldSeparator & ""
 end run`;
 }
 
 function detectWindowTitles(windowTitles: string[]): DetectionSnapshot {
   for (const rawTitle of windowTitles) {
     const title = rawTitle.trim();
-    if (/\bGoogle Meet\b|\bMeet\s*[-|]/i.test(title)) {
+    if (/^Meet\s*[-|]\s*\S|^.+\s*[-|]\s*Google Meet(?:\s*[-|]\s*(?:Brave|Google Chrome|Microsoft Edge|Safari|Firefox))?$/i.test(title)) {
       return {
         active: true,
         platform: "google-meet",
@@ -204,4 +207,4 @@ export async function detectMeeting(windowTitles: string[] = []): Promise<Detect
   return { active: false, confidence: "none", evidence: "Unsupported platform" };
 }
 
-export const detectorInternals = { cleanTitle, parseDetectorOutput, detectWindowTitles };
+export const detectorInternals = { cleanTitle, parseDetectorOutput, detectWindowTitles, chromiumBrowserScript };

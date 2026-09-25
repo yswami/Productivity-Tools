@@ -1,6 +1,6 @@
 {
   "name": "meeting-notes-desktop",
-  "version": "0.3.6",
+  "version": "0.3.7",
   "description": "Private, offline meeting capture for Zoom, Google Meet, and Microsoft Teams",
   "main": "dist/main.js",
   "author": "Yogendra Swami",

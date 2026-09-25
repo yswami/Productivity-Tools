@@ -26,6 +26,13 @@ test("detects Google Meet from a browser-agnostic window title", () => {
   });
 });
 
+test("does not treat the Google Meet home page as an active call", () => {
+  assert.deepEqual(detectorInternals.detectWindowTitles(["Google Meet - Brave"]), {
+    active: false,
+    confidence: "none"
+  });
+});
+
 test("detects Microsoft Teams calls from a browser-agnostic window title", () => {
   assert.deepEqual(detectorInternals.detectWindowTitles(["Project review | Microsoft Teams Meeting"]), {
     active: true,
@@ -34,4 +41,14 @@ test("detects Microsoft Teams calls from a browser-agnostic window title", () =>
     confidence: "high",
     evidence: "Visible Microsoft Teams call window"
   });
+});
+
+test("browser detector emits real tab delimiters for the parser", () => {
+  const script = detectorInternals.chromiumBrowserScript("Brave Browser");
+  assert.match(script, /character id 9/);
+  assert.match(script, /& fieldSeparator &/);
+  assert.doesNotMatch(script, /& tab &|& \(ASCII character 9\) &/);
+  assert.match(script, /does not contain "meet\.google\.com\/\?"/);
+  assert.match(script, /does not contain "\/home"/);
+  assert.match(script, /does not contain "\/_meet\/"/);
 });
